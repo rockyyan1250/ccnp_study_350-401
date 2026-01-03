@@ -139,7 +139,10 @@ st.progress((st.session_state.current_index + 1) / len(st.session_state.q_list))
 
 st.markdown("### Question")
 # 問題文の表示（Markdownを有効にして改行などを綺麗に見せる）
-st.markdown(row['question'].replace('\n', '  \n'))
+if pd.notna(row['question']):
+    st.markdown(str(row['question']).replace('\n', '  \n'))
+else:
+    st.warning("Question text not available")
 
 if pd.notna(row['images']) and str(row['images']).strip():
     img_files = [x.strip() for x in str(row['images']).split(',') if x.strip()]
