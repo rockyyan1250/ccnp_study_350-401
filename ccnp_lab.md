@@ -324,6 +324,7 @@ interface GigabitEthernet0/2
  ip ospf 100 area 0.0.0.0
 !
 ip route vrf CORP 10.100.1.0 255.255.255.0 Tunnel0 10.100.100.1
+end
 
 
 
@@ -441,7 +442,7 @@ interface Loopback0
  vrf forwarding Finance
  ip address 10.11.11.1 255.255.255.252
  exit
-interface g0/1
+interface g0/0
  ip address 209.165.200.230 255.255.255.252
  no shut
  exit
@@ -464,15 +465,20 @@ hostname R22
 vrf definition Finance
  address-family ipv4
  exit-address-family
- exit
-interface g0/1
- vrf forwarding Finance
+!
+interface Loopback0
+ ip address 10.2.2.2 255.255.255.255
+!
+interface g0/0
  ip address 209.165.201.2 255.255.255.252
- no shut
- exit
-ip route 0.0.0.0 0.0.0.0 209.165.201.1
-interface Loopback1
+!
+interface g0/1
  ip address 10.22.22.1 255.255.255.252
+!
+router bgp 65502
+ bgp router-id 10.2.2.2
+ network 209.165.201.0 mask 255.255.255.252
+ neighbor 209.165.201.1 remote-as 65500
  exit
 end
 
@@ -556,13 +562,15 @@ interface Loopback0
 interface Loopback1
  ip address 10.20.20.20 255.255.255.255
  exit
-interface g0/2
+interface g0/0
  ip address 10.10.20.20 255.255.255.0
  no shut
  exit
-interface g0/4
- ip address 10.40.50.20 255.255.255.0
+interface g0/1
+ ip address 10.10.30.20 255.255.255.0
  no shut
+interface g0/2
+  ip address 10.40.50.20 255.255.255.0
  exit
 end
 
@@ -636,13 +644,17 @@ exit
 interface Loopback1
  ip address 10.20.20.20 255.255.255.255
 exit
-interface g0/2
+interface g0/0
  ip address 10.10.20.20 255.255.255.0
  no shut
 exit
-interface g0/4
+interface g0/1
+ ip address 10.10.30.20 255.255.255.0
+ no shut
+interface g0/2
  ip address 10.40.50.20 255.255.255.0
  no shut
+
 exit
 end
 
@@ -672,7 +684,7 @@ interface vlan 123
 end
 
 # R10 (Sw1) の初期設定
-
+en
 conf t
 hostname R10
 interface vlan 123
@@ -695,6 +707,8 @@ end
 
 
 # R20 (Sw2) の初期設定
+
+en
 conf t
 hostname R20
 interface vlan 123
@@ -707,6 +721,7 @@ end
 
 # R30 (Sw3) の初期設定
 
+en
 conf t
 hostname R30
 interface vlan 123
@@ -782,14 +797,14 @@ interface loopback10
 interface loopback20
  ip address 209.165.201.20 255.255.255.255
 !
-interface g1/0
+interface g0/0
  no switchport
- ip address 209.165.200.225 255.255.255.252
+ ip address 209.165.200.224 255.255.255.252
  no shutdown
 !
-interface g1/1
+interface g0/1
  no switchport
- ip address 209.165.202.129 255.255.255.252
+ ip address 209.165.202.128 255.255.255.252
  no shutdown
 end
 
@@ -857,7 +872,7 @@ R1# sh run | s router bgp
 # QUESTION 36
 
 # 初期状態（Pre-config）
-# Sw4（Sw20相当 / L2）
+# R4（Sw20相当 / L2）
 enable
 conf t
 hostname Sw20
@@ -869,52 +884,52 @@ interface range g0/0-3
  no shut
 end
 
-# Sw1（R10相当 / L3）
+# R1（R10相当 / L3）
 enable
 conf t
 hostname R10
-ip routing
-interface vlan 123
- ip address 192.168.123.10 255.255.255.0
- no shut
 interface loopback0
  ip address 192.168.1.10 255.255.255.255
+interface g0/0
+ ip address 192.168.123.10 255.255.255.0
 router eigrp 10
  network 192.168.1.10 0.0.0.0
  network 192.168.123.0 0.0.0.255
 end
 
-# Sw2（R20相当 / L3）
+# R2（R20相当 / L3）
 enable
 conf t
 hostname R20
 ip routing
-interface vlan 123
- ip address 192.168.123.20 255.255.255.0
- no shut
-interface vlan 24
- ip address 192.168.24.20 255.255.255.0
- no shut
 interface loopback0
  ip address 192.168.1.20 255.255.255.255
+!
+interface g0/0
+ ip address 192.168.123.20 255.255.255.0
+!
+interface g0/1
+ ip address 192.168.24.20 255.255.255.0
+!
 router eigrp 10
  network 192.168.1.20 0.0.0.0
  network 192.168.24.0 0.0.0.255
  network 192.168.123.0 0.0.0.255
 end
 
-# Sw3（R30相当 / L3）※ACL120が既に適用されている状態を再現
+# R3（R30相当 / L3）※ACL120が既に適用されている状態を再現
 
 enable
 conf t
 hostname R30
 ip routing
-interface vlan 123
- ip address 192.168.123.30 255.255.255.0
- ip access-group 120 in
- no shut
 interface loopback0
  ip address 192.168.1.30 255.255.255.255
+!
+interface g0/0
+ ip address 192.168.123.30 255.255.255.0
+ ip access-group 120 in
+!
 router eigrp 10
  network 192.168.1.30 0.0.0.0
  network 192.168.123.0 0.0.0.255
