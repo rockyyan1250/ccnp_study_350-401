@@ -1341,50 +1341,11 @@ router ospf 10
  network 10.10.1.0 0.0.0.255 area 0
 !
 ip sla 100
- frequency 300
-end
+ icmp-echo 10.12.1.2
+frequency 300
 
 # Sw1
-enable
-configure terminal
-interface Loopback0
- ip address 10.2.2.2 255.255.255.255
-!
-interface GigabitEthernet0/0
- switchport access vlan 10
- ip flow ingress
- ip flow egress
-!
-interface GigabitEthernet0/1
- switchport access vlan 12
- ip flow ingress
- ip flow egress
-!
-interface GigabitEthernet0/2
- switchport access vlan 14
- ip flow ingress
- ip flow egress
-!
-interface Vlan10
- ip address 10.10.1.1 255.255.255.0
- ip ospf network point-to-point
- no shutdown
-!
-interface Vlan12
- ip address 10.12.1.1 255.255.255.0
- no shutdown
-!
-interface Vlan14
- ip address 10.14.1.1 255.255.255.0
- no shutdown
-!
-router ospf 10
- router-id 10.2.2.2
- network 10.2.2.2 0.0.0.0 area 0
- network 10.10.1.0 0.0.0.255 area 0
- network 10.12.1.0 0.0.0.255 area 0
- network 10.14.1.0 0.0.0.255 area 0
-end
+
 
 # 解答
 # R1
