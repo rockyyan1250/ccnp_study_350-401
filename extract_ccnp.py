@@ -4,10 +4,10 @@ import re
 import os
 
 # --- 設定 ---
-pdf_path = "350-401-1249-42-1.pdf"
+pdf_path = "300-410 (685+20).pdf"
 output_csv = "ccnp_data.csv"
 image_folder = "ccnp_images"
-MAX_PAGE = 424  # 425ページ以降は無視（1始まりで424ページまで処理）
+MAX_PAGE = 365  # 365ページ以降は無視（1始まりで365ページまで処理）
 
 if not os.path.exists(image_folder):
     os.makedirs(image_folder)
