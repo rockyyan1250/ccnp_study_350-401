@@ -13,11 +13,11 @@
 35 472,eBGP
 36 474,ACL CoPP  SSH tcp any eq 22, ICMP icmp any
 37 475,trunking EtherChannel,spanning tree
-38 477,
-39 479,
-40 481,
-41 482,
-42 484
+38 477,NetFlow
+39 479,eBGP
+40 481,OSPF no ip
+41 482,NetFlow
+42 484,NetFlow
 
 
 
