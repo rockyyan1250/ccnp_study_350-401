@@ -48,6 +48,10 @@ if 'show_answer' not in st.session_state:
     st.session_state.show_answer = False
 if 'q_list' not in st.session_state:
     st.session_state.q_list = []
+if 'shuffled_options' not in st.session_state:
+    st.session_state.shuffled_options = None
+if 'shuffled_for_id' not in st.session_state:
+    st.session_state.shuffled_for_id = None
 
 df = load_data()
 
@@ -189,8 +193,20 @@ if options_str and options_str.lower() != 'nan':
     if current_option:
         formatted_options.append(current_option)
     
+    # 問題が切り替わったときだけ順番をランダム化（回答の表示切替では順番維持）
+    if st.session_state.shuffled_for_id != row['id'] or st.session_state.shuffled_options is None:
+        shuffled = formatted_options.copy()
+        # 元の順番（A, B, C...）には絶対にならないようにする
+        for _ in range(10):
+            random.shuffle(shuffled)
+            if shuffled != formatted_options:
+                break
+        if shuffled == formatted_options and len(shuffled) > 1:
+            shuffled[0], shuffled[1] = shuffled[1], shuffled[0]
+        st.session_state.shuffled_options = shuffled
+        st.session_state.shuffled_for_id = row['id']
     # 表示: st.infoだとボックスになるので、PDFっぽく見せるためにMarkdownを使用
-    for opt in formatted_options:
+    for opt in st.session_state.shuffled_options:
         # 背景色をつけたい場合は st.info でも良いが、ここでは読みやすさ優先でMarkdown
         st.info(opt) 
 else:
