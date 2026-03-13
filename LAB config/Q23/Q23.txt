@@ -1,0 +1,182 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 23
+IPv6 Syslog 与 SNMP Trap（含 OSPFv3）
+物理环境：General（任意 3 台路由/交换设备作为 R1、R2、SW2，以及外部 Syslog/SNMP 服务器）
+================================================================================
+
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+R1 预配置
+======================================
+eenable
+configure terminal
+hostname R1
+
+service timestamps debug datetime msec
+service timestamps log uptime
+
+interface GigabitEthernet0/0
+ ip address 10.12.0.1 255.255.255.252
+ ipv6 address 2001:BB9:AABB:1234:1111:2222:3333:4444/64
+ ipv6 enable
+ ipv6 ospf 1 area 0
+!
+interface GigabitEthernet0/1
+ ip address 10.11.0.1 255.255.255.252
+ ipv6 address 2001:BB9:AABB:1212:1111:2222:3333:1111/64
+ ipv6 address autoconfig
+ ipv6 enable
+ ipv6 ospf 1 area 0
+
+ipv6 router ospf 1
+
+snmp-server host 2001:ABCD:ABCD:5678:A8BB:CCFF:FE00:200 version 2c RO
+
+end
+write memory
+
+
+======================================
+R2 预配置
+======================================
+enable
+configure terminal
+hostname R2
+
+service timestamps debug datetime msec
+no service timestamps log uptime
+
+interface GigabitEthernet0/0
+ ip address 10.12.0.2 255.255.255.252
+ ipv6 address 2001:BB9:AABB:1234:1111:2222:3333:5555/64
+ ipv6 enable
+ ipv6 ospf 1 area 0
+!
+interface GigabitEthernet0/1
+ ip address 10.22.0.2 255.255.255.252
+ ipv6 address 2001:BB2:AABB:2202:1111:2222:3333:2021/64
+ ipv6 address autoconfig
+ ipv6 enable
+ ipv6 ospf 1 area 0
+
+logging host ipv6 FE80::250:79FF:FE66:682E
+
+ipv6 router ospf 1
+
+snmp-server host 2001:ABCD:ABCD:1234:A8BB:CCFF:FE00:200 RO
+
+end
+write memory
+
+======================================
+S1 = SW2 预配置
+======================================
+enable
+configure terminal
+hostname SW2
+
+service timestamps debug datetime msec
+service timestamps log datetime msec
+
+interface GigabitEthernet0/0
+ no switchport
+ ip address 10.201.0.1 255.255.255.252
+ ipv6 address 2001:ABCD:ABCD:5678::/64 eui-64
+ ipv6 enable
+ ipv6 ospf 1 area 0
+!
+interface GigabitEthernet0/1
+ no switchport
+ ip address 10.22.0.1 255.255.255.252
+ ipv6 address 2001:BB2:AABB:2202:1111:2222:3333:2022/64
+ ipv6 enable
+ ipv6 ospf 1 area 0
+
+logging trap debugging
+logging host ipv6 FE80::250:79FF:FE66:682E
+
+ipv6 router ospf 1
+
+snmp-server enable traps ospf state-change neighbor-state-change
+snmp-server host 2001:ABCD:ABCD:1234:A8BB:CCFF:FE00:200 RO
+snmp-server host 2001:ABCD:ABCD:5678:A8BB:CCFF:FE00:200 version 2c RO
+
+end
+write memory
+
+================================================================================
+任务解答命令
+================================================================================
+
+======================================
+任务 1 Part 1：R2 向 IPv6 Syslog + SNMP 发送信息级日志
+======================================
+
+R2
+enable
+configure terminal
+service timestamps log datetime
+no logging host ipv6 FE80::250:79FF:FE66:682E
+logging host ipv6 2001:ABCD:ABCD:1234:A8BB:CCFF:FE00:200
+logging trap informational
+snmp-server enable traps syslog
+no snmp-server host 2001:ABCD:ABCD:1234:A8BB:CCFF:FE00:200 RO
+snmp-server host 2001:ABCD:ABCD:5678:A8BB:CCFF:FE00:200 version 2c RO
+end
+write memory
+
+
+======================================
+任务 1 Part 2：SW2 仅向 SNMP 发送 Syslog traps，本地缓冲，不向 Syslog/控制台/终端
+======================================
+
+SW2
+enable
+configure terminal
+snmp-server enable traps syslog
+no snmp-server host 2001:ABCD:ABCD:1234:A8BB:CCFF:FE00:200 RO
+no logging trap
+no logging console
+no logging monitor
+end
+write memory
+
+
+
+======================================
+任务 2：R1 OSPFv3 邻居状态 Trap + 向 IPv6 Syslog 发信息级日志
+======================================
+
+R1
+enable
+configure terminal
+snmp-server enable traps ospfv3 state-change neighbor-state-change
+snmp-server trap-source GigabitEthernet0/0    ! ← 这里必须改！
+logging trap informational
+logging host ipv6 2001:ABCD:ABCD:1234:A8BB:CCFF:FE00:200
+end
+write memory
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+! R1 检查 trap source
+R1# show run | include trap-source
+! 应显示: snmp-server trap-source GigabitEthernet0/0
+
+! 查看日志目标
+R1# show run | include logging host
+
+! SW2 确认无 console/monitor
+SW2# show logging
+! 应只看到 "Logging to buffered"，无 console/monitor/syslog
+
+! R2 确认时间戳和日志级别
+R2# show run | section logging

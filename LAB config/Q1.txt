@@ -1,0 +1,274 @@
+================================================================================
+                    CCNP 300-410 ENCOR - QUESTION 1
+                    Syslog and SNMP OSPF LSA Traps Configuration
+================================================================================
+
+【环境审核结果】
+================================================================================
+物理环境：SW1-SW4 (Physical topo(SW1-SW4).png)
+- 4台交换机 (Sw1, Sw2, Sw3, Sw4)
+- 接口：g0/0-3, g1/0-3
+- 4台主机 (Host12, Host13, Host22, Host32)
+
+审核结论：配置正确，交换机支持 Syslog 和 SNMP 配置
+================================================================================
+
+================================================================================
+一、物理环境
+================================================================================
+
+物理环境：SW1-SW4 (Physical topo(SW1-SW4).png)
+- 4台交换机 (Sw1, Sw2, Sw3, Sw4)
+- 4台主机 (Host12, Host13, Host22, Host32)
+
+================================================================================
+二、设备映射关系
+================================================================================
+
+逻辑设备        物理设备          说明
+--------------------------------------------------------------------------------
+R-WEST         Sw1              交换机 (需要配置 Syslog 和 SNMP)
+R-EAST         Sw2              交换机
+DSW-1          Sw3              分布层交换机
+DSW-2          Sw4              分布层交换机
+ASW-NM         Host12           接入层交换机 (SNMP服务器)
+ASW-LAN        Host13           接入层交换机
+Syslog服务器    (网络中已配置)    IP: 10.1.100.14
+SNMP服务器      (网络中已配置)    IP: 10.2.100.161
+
+================================================================================
+三、考试题目
+================================================================================
+
+Tasks:
+Troubleshoot R-WEST to achieve the desired results:
+1. All the commands should be locally saved to the router as well as sent to 
+   the Syslog server except passwords.
+2. All the Cisco OSPF LSA traps should be sent to the SNMP server.
+
+================================================================================
+四、现有配置（通过 show running-config 查看）
+================================================================================
+
+R-WEST 上已有的配置：
+!
+logging host 10.1.100.14 sequence-num-session
+snmp-server community public RO
+snmp-server host 10.2.100.161 public
+!
+
+说明：
+- Syslog服务器已配置：10.1.100.14
+- SNMP服务器已配置：10.2.100.161
+- SNMP community string: public
+
+================================================================================
+五、预配置命令（环境搭建）
+================================================================================
+
+=======================================
+R-WEST (Sw1) 基础配置
+=======================================
+enable
+configure terminal
+hostname R-WEST
+no ip domain-lookup
+line console 0
+ logging synchronous
+ exec-timeout 0 0
+ exit
+line vty 0 4
+ logging synchronous
+ exec-timeout 0 0
+ password cisco
+ login
+ exit
+enable secret cisco
+!
+! 配置 Syslog服务器
+logging host 10.1.100.14 sequence-num-session
+!
+! 配置 SNMP
+snmp-server community public RO
+snmp-server host 10.2.100.161 public
+!
+
+=======================================
+R-EAST (Sw2) 基础配置
+=======================================
+enable
+configure terminal
+hostname R-EAST
+no ip domain-lookup
+line console 0
+ logging synchronous
+ exec-timeout 0 0
+ exit
+line vty 0 4
+ logging synchronous
+ exec-timeout 0 0
+ password cisco
+ login
+ exit
+enable secret cisco
+
+=======================================
+DSW-1 (Sw3) 基础配置
+=======================================
+enable
+configure terminal
+hostname DSW-1
+no ip domain-lookup
+line console 0
+ logging synchronous
+ exec-timeout 0 0
+ exit
+line vty 0 4
+ logging synchronous
+ exec-timeout 0 0
+ password cisco
+ login
+ exit
+enable secret cisco
+
+=======================================
+DSW-2 (Sw4) 基础配置
+=======================================
+enable
+configure terminal
+hostname DSW-2
+no ip domain-lookup
+line console 0
+ logging synchronous
+ exec-timeout 0 0
+ exit
+line vty 0 4
+ logging synchronous
+ exec-timeout 0 0
+ password cisco
+ login
+ exit
+enable secret cisco
+
+================================================================================
+六、任务解答命令（完成题目要求）
+================================================================================
+
+=======================================
+任务1: 配置命令本地保存并发送到 Syslog 服务器（隐藏密码）
+=======================================
+
+R-WEST 配置:
+enable
+configure terminal
+!
+archive
+ log config
+  logging enable
+  hidekeys
+  notify syslog
+  exit
+ exit
+!
+
+说明：
+- archive log config: 进入配置日志模式
+- logging enable: 启用配置日志功能
+- hidekeys: 隐藏密码等敏感信息
+- notify syslog: 将配置变更通知发送到 Syslog 服务器
+
+=======================================
+任务2: 配置 OSPF LSA traps 发送到 SNMP 服务器
+=======================================
+
+R-WEST 配置:
+enable
+configure terminal
+!
+snmp-server enable traps ospf lsa
+!
+
+说明：
+- snmp-server enable traps ospf lsa: 启用 OSPF LSA 相关的 SNMP traps
+
+=======================================
+完整解答命令
+=======================================
+
+R-WEST:
+enable
+configure terminal
+archive
+ log config
+  logging enable
+  hidekeys
+  notify syslog
+  exit
+ exit
+snmp-server enable traps ospf lsa
+end
+copy running-config startup-config
+
+================================================================================
+七、验证命令
+================================================================================
+
+=======================================
+验证 Syslog 配置
+=======================================
+show archive log config all
+show running-config | include archive
+show running-config | include logging
+
+=======================================
+验证 SNMP 配置
+=======================================
+show running-config | include snmp
+show snmp
+show snmp community
+
+=======================================
+验证 OSPF LSA traps
+=======================================
+show running-config | include traps ospf
+
+预期输出应包含：
+snmp-server enable traps ospf lsa
+
+================================================================================
+八、知识点说明
+================================================================================
+
+=======================================
+Archive Log Config 功能
+=======================================
+- logging enable: 启用配置变更日志
+- hidekeys: 在日志中隐藏密码等敏感信息
+- notify syslog: 将配置变更发送到 Syslog 服务器
+
+=======================================
+SNMP OSPF Traps 类型
+=======================================
+Router(config)#snmp-server enable traps ospf ?
+ cisco-specific  Cisco specific traps
+ errors          Error traps
+ lsa             Lsa related traps
+ rate-limit      Trap rate limit values
+ retransmit      Packet retransmit traps
+ state-change    State change traps
+ <cr>
+
+本题要求配置 lsa 相关的 traps
+
+================================================================================
+九、保存配置
+================================================================================
+
+在 R-WEST 上执行:
+write memory
+或
+copy running-config startup-config
+
+================================================================================
+配置完成！
+================================================================================

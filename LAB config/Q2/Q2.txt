@@ -1,0 +1,268 @@
+Remark: Traceroute test in Spoke to Spoke doesn't work 
+
+
+
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 2
+DMVPN Hub-and-Spoke with EIGRP - Q2 on R7206s (Clean Version)
+================================================================================
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+HUB（R7206-1）预配置
+======================================
+enable
+configure terminal
+hostname HUB
+no ip domain-lookup
+
+interface FastEthernet0/0
+ ip address 10.10.10.1 255.255.255.252
+ no shutdown
+
+interface FastEthernet2/0
+ ip address 10.10.10.5 255.255.255.252
+ no shutdown
+
+interface Loopback0
+ ip address 10.10.255.254 255.255.255.0
+
+interface Tunnel0
+ ip address 192.168.1.254 255.255.255.0
+ tunnel source Loopback0
+ tunnel mode gre multipoint
+ ip nhrp authentication ccnp123
+ ip nhrp network-id 100
+ ip nhrp redirect
+
+crypto isakmp policy 10
+ encr aes 256
+ hash sha256
+ authentication pre-share
+ group 2
+ lifetime 86400
+
+crypto isakmp key ccnp123 address 0.0.0.0
+
+crypto ipsec transform-set CCNP-SET esp-aes 256 esp-sha-hmac
+ mode transport
+
+crypto ipsec profile ccnp
+ set transform-set CCNP-SET
+
+interface Tunnel0
+ tunnel protection ipsec profile ccnp
+
+router eigrp 100
+ network 10.10.10.0 0.0.0.255
+ network 10.10.255.0 0.0.0.255
+ network 192.168.1.0 0.0.0.255
+ no auto-summary
+
+end
+write memory
+
+
+======================================
+BR1（R7206-2）预配置
+======================================
+enable
+configure terminal
+hostname BR1
+no ip domain-lookup
+
+interface FastEthernet0/0
+ ip address 10.10.10.2 255.255.255.252
+ no shutdown
+
+interface FastEthernet1/0
+ shutdown
+
+interface Loopback0
+ ip address 172.16.1.254 255.255.255.0
+
+interface Tunnel0
+ ip address 192.168.1.1 255.255.255.0
+
+crypto isakmp policy 10
+ encr aes 256
+ hash sha256
+ authentication pre-share
+ group 2
+ lifetime 86400
+
+crypto isakmp key ccnp123 address 0.0.0.0
+
+crypto ipsec transform-set CCNP-SET esp-aes 256 esp-sha-hmac
+ mode transport
+
+crypto ipsec profile ccnp
+ set transform-set CCNP-SET
+
+router eigrp 100
+ network 10.10.10.0 0.0.0.255
+ network 172.16.1.0 0.0.0.255
+ network 192.168.1.0 0.0.0.255
+ no auto-summary
+
+end
+write memory
+
+
+======================================
+BR2（R7206-3）预配置
+======================================
+enable
+configure terminal
+hostname BR2
+no ip domain-lookup
+
+interface FastEthernet2/0
+ ip address 10.10.10.6 255.255.255.252
+ no shutdown
+
+interface FastEthernet1/0
+ shutdown
+
+interface Loopback0
+ ip address 172.16.2.254 255.255.255.0
+
+interface Tunnel0
+ ip address 192.168.1.2 255.255.255.0
+
+crypto isakmp policy 10
+ encr aes 256
+ hash sha256
+ authentication pre-share
+ group 2
+ lifetime 86400
+
+crypto isakmp key ccnp123 address 0.0.0.0
+
+crypto ipsec transform-set CCNP-SET esp-aes 256 esp-sha-hmac
+ mode transport
+
+crypto ipsec profile ccnp
+ set transform-set CCNP-SET
+
+router eigrp 100
+ network 10.10.10.0 0.0.0.255
+ network 172.16.2.0 0.0.0.255
+ network 192.168.1.0 0.0.0.255
+ no auto-summary
+
+end
+write memory
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+======================================
+任务 1：BR1 NHRP/DMVPN 配置
+======================================
+
+BR1
+enable
+configure terminal
+interface Tunnel0
+ tunnel mode gre multipoint
+ tunnel source FastEthernet0/0
+ tunnel key 100
+ ip nhrp authentication ccnp123
+ ip nhrp map 192.168.1.254 10.10.255.254
+ ip nhrp map multicast 10.10.255.254
+ ip nhrp holdtime 300
+ ip nhrp network-id 100
+ ip nhrp nhs 192.168.1.254
+end
+write memory
+
+
+======================================
+任务 2：BR2 NHRP/DMVPN 配置
+======================================
+
+BR2
+enable
+configure terminal
+interface Tunnel0
+ tunnel mode gre multipoint
+ tunnel source FastEthernet2/0
+ tunnel key 100
+ ip nhrp authentication ccnp123
+ ip nhrp map 192.168.1.254 10.10.255.254
+ ip nhrp map multicast 10.10.255.254
+ ip nhrp holdtime 300
+ ip nhrp network-id 100
+ ip nhrp nhs 192.168.1.254
+end
+write memory
+
+
+======================================
+任务 3：MTU 与 TCP MSS 调整
+======================================
+
+BR1
+enable
+configure terminal
+interface Tunnel0
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+end
+write memory
+
+BR2
+enable
+configure terminal
+interface Tunnel0
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+end
+write memory
+
+
+======================================
+任务 4：IPSec Profile 应用与 Shortcut
+======================================
+
+BR1
+enable
+configure terminal
+interface Tunnel0
+ tunnel protection ipsec profile ccnp
+ ip nhrp shortcut
+end
+write memory
+
+BR2
+enable
+configure terminal
+interface Tunnel0
+ tunnel protection ipsec profile ccnp
+ ip nhrp shortcut
+end
+write memory
+
+
+================================================================================
+验证命令
+================================================================================
+
+show ip eigrp neighbors
+show dmvpn
+show ip nhrp
+show crypto isakmp sa
+show crypto ipsec sa
+show ip route eigrp
+
+BR1# ping 172.16.2.254
+BR2# ping 172.16.1.254
+
+BR1# traceroute 172.16.2.254
+BR2# traceroute 172.16.1.254

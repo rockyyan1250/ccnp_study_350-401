@@ -1,0 +1,209 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 21
+SW2 Telnet 访问控制 + EAST uRPF allow-default
+物理环境：General
+================================================================================
+
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+R2 = West 预配置
+======================================
+enable
+configure terminal
+hostname West
+enable secret Cisco
+
+interface g0/0
+ description LOGICAL-e0/0-to-SW2
+ ip address 192.168.20.1 255.255.255.0
+ no shutdown
+
+interface g0/1
+ description LOGICAL-e0/1-to-ISP
+ ip address 10.0.20.2 255.255.255.252
+ no shutdown
+
+router ospf 1
+ network 10.0.20.0 0.0.0.3 area 0
+ network 192.168.20.0 0.0.0.255 area 0
+
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+
+end
+write memory
+
+
+
+======================================
+R3 = ISP 预配置
+======================================
+enable
+configure terminal
+hostname ISP
+enable secret Cisco
+
+interface loopback0
+ ip address 172.16.0.100 255.255.255.255
+ ip ospf 1 area 0
+
+interface loopback16
+ ip address 172.16.16.16 255.255.255.255
+
+interface g0/4
+ description LOGICAL-e0/0-to-East
+ ip address 10.0.10.1 255.255.255.252
+ ip ospf 1 area 1
+ no shutdown
+
+interface g0/3
+ description LOGICAL-e0/1-to-West
+ ip address 10.0.20.1 255.255.255.252
+ ip ospf 1 area 0
+ no shutdown
+
+router ospf 1
+ router-id 3.3.3.3
+
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+
+end
+write memory
+
+
+
+======================================
+R4 = East 预配置
+======================================
+enable
+configure terminal
+hostname East
+enable secret Cisco
+
+interface g0/0
+ description LOGICAL-e0/0-LAN
+ ip address 192.168.10.1 255.255.255.0
+ no shutdown
+
+interface g0/3
+ description LOGICAL-e0/1-to-ISP
+ ip address 10.0.10.2 255.255.255.252
+ ip verify unicast source reachable-via rx
+ no shutdown
+
+router ospf 1
+ network 10.0.10.0 0.0.0.3 area 1
+
+ip route 0.0.0.0 0.0.0.0 10.0.10.1
+
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+
+line vty 0 4
+ login
+ transport input ssh
+
+end
+write memory
+
+======================================
+S1 = SW2 预配置
+======================================
+enable
+configure terminal
+hostname SW2
+enable secret Cisco
+username SW2 secret Cisco
+
+aaa new-model
+aaa authentication login telnet local
+
+interface vlan 1
+ ip address 192.168.20.2 255.255.255.0
+ no shutdown
+
+ip default-gateway 192.168.20.1
+
+ip access-list standard ISP
+ deny any log
+
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+
+line vty 0 4
+ access-class ISP in
+ exec-timeout 0 0
+ transport input ssh
+
+end
+write memory
+
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+======================================
+任务 1：仅允许 ISP Loopback0 Telnet 到 SW2，并使用 AAA
+======================================
+
+SW2
+enable
+configure terminal
+ip access-list standard ISP
+ 5 permit host 172.16.0.100
+exit
+
+line vty 0 4
+ login authentication telnet
+end
+write memory
+
+
+
+======================================
+任务 2：修复 EAST 上 uRPF 导致的默认路由可达性问题
+======================================
+
+EAST
+enable
+configure terminal
+interface g0/3
+ ip verify unicast source reachable-via rx allow-default
+end
+write memory
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+SW2
+show access-lists ISP
+show running-config | section line vty
+
+
+East
+show running-config interface g0/3
+ping 172.16.16.16
+
+ISP 
+telnet 192.168.20.2
+
+
+

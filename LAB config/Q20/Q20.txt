@@ -1,0 +1,193 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 20
+ISP 与 SW2 的 Telnet + ACL 流量控制
+物理环境： General（任选一台作 ISP，一台作 EAST，一台作 WEST，一台作 SW2）
+================================================================================
+
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+R1 = ISP 预配置
+======================================
+
+en
+conf t
+hostname R1
+enable secret Cisco
+
+interface g0/2
+ description TO-EAST-R3
+ ip address 10.0.10.1 255.255.255.252
+ ip access-group ACL in
+ no shutdown
+
+interface g0/4
+ description TO-WEST-R5
+ ip address 20.0.20.1 255.255.255.252
+ ip access-group ACL in
+ no shutdown
+
+ip route 192.168.10.0 255.255.255.0 10.0.10.2
+ip route 192.168.20.0 255.255.255.0 20.0.20.2
+
+ip access-list extended ACL
+ 10 permit tcp host 192.168.20.2 eq telnet host 20.0.20.1 eq telnet
+ 20 permit ip 192.168.0.0 0.0.255.255 255.255.255.0 0.0.0.255
+ 30 deny ip any any log
+
+end
+wr
+
+
+
+======================================
+R3 = East 预配置
+======================================
+
+en
+conf t
+hostname R3
+enable secret Cisco
+
+interface g0/0
+ description EAST-LAN
+ ip address 192.168.10.1 255.255.255.0
+ no shutdown
+
+interface g0/1
+ description TO-ISP-R1
+ ip address 10.0.10.2 255.255.255.252
+ no shutdown
+
+ip route 0.0.0.0 0.0.0.0 10.0.10.1
+
+end
+wr
+
+======================================
+R5 = West 预配置
+======================================
+
+en
+conf t
+hostname R5
+enable secret Cisco
+
+interface g0/6
+ description WEST-LAN-TO-SW2
+ ip address 192.168.20.1 255.255.255.0
+ no shutdown
+
+interface g0/1
+ description TO-ISP-R1
+ ip address 20.0.20.2 255.255.255.252
+ no shutdown
+
+ip route 0.0.0.0 0.0.0.0 20.0.20.1
+
+end
+wr
+
+
+
+======================================
+R6 = SW2 预配置
+======================================
+en
+conf t
+hostname R6
+enable secret Cisco
+username SW2 secret Cisco
+
+aaa new-model
+aaa authentication login TELNET local
+
+interface g0/0
+ description TO-WEST-R5
+ ip address 192.168.20.2 255.255.255.0
+ no shutdown
+
+ip route 0.0.0.0 0.0.0.0 192.168.20.1
+
+line vty 0 4
+ exec-timeout 0 0
+ transport input ssh
+
+end
+wr
+
+======================================
+S1 预配置
+======================================
+
+en
+conf t
+hostname S1
+
+interface g0/3
+ description TO-EAST-R3-G0/0
+ no shutdown
+
+end
+wr
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+SW2
+en
+conf t
+line vty 0 4
+ transport input ssh telnet
+ login authentication TELNET
+end
+wr
+
+
+ISP
+en
+conf t
+ip access-list extended ACL
+ no 10
+ 10 permit tcp host 192.168.20.2 eq telnet host 20.0.20.1 log
+ no 20
+ 20 permit ip 192.168.0.0 0.0.255.255 any log
+end
+wr
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+! R1
+show ip int brief
+show ip access-lists ACL
+show run | sec ip access-list extended ACL
+
+! R3
+show ip int brief
+show ip route
+
+! R5
+show ip int brief
+show ip route
+
+! R6
+show ip int brief
+show run | sec line vty
+show run | inc aaa|username
+
+! 在 R1 上
+telnet 192.168.20.2
+! Username: SW2
+! Password: Cisco
+
+! 在 R6 上
+ping 192.168.10.1

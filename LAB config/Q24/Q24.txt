@@ -1,0 +1,75 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 24
+本地配置归档（隐藏密码）+ Cisco 专有 OSPF LSA Trap
+物理环境：General（6 路由器拓扑，任取一台作为 R-WEST）
+================================================================================
+
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+R-WEST
+enable
+configure terminal
+hostname R-WEST
+
+interface Loopback0
+ ip address 10.1.1.1 255.255.255.255
+
+interface gigabitethernet0/0
+ ip address 10.1.2.1 255.255.255.0
+ ipv6 ospf 10 area 0
+ no shutdown
+
+router ospf 10
+ redistribute connected subnets
+
+logging host 10.1.100.14 sequence-num-session
+
+snmp-server community public RO
+snmp-server host 10.2.100.161 public
+
+end
+write memory
+
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+R-WEST
+enable
+configure terminal
+
+service password-encryption
+
+archive
+ log config
+  logging enable
+  hidekeys
+
+snmp-server enable traps ospf cisco-specific lsa
+
+end
+write memory
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+! 检查密码加密与 archive 配置
+show running-config | include password
+show archive log config all
+
+! 触发一次简单配置变更，查看是否被记录且密码被隐藏
+configure terminal
+banner motd ^CU^
+end
+show archive log config all
+
+! 检查 SNMP OSPF LSA Trap 设置
+show running-config | include snmp-server

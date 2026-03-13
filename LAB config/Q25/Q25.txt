@@ -1,0 +1,335 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 25
+VRF-Lite + EIGRP 多 AS（Sales=500 / Admin=600）
+物理环境：General（6 路由器拓扑）
+================================================================================
+
+
+================================================================================
+预配置命令（按题目给定已有配置）
+================================================================================
+
+======================================
+R1 预配置（题目已有）
+======================================
+enable
+configure terminal
+hostname R1
+interface Loopback0
+ ip address 10.10.10.1 255.255.255.255
+!
+interface GigabitEthernet0/1
+ ip address 10.0.0.1 255.255.255.252
+ no shutdown
+!
+router eigrp 600
+ network 10.0.0.0 0.0.0.3
+ network 10.10.10.1 0.0.0.0
+!
+end
+copy running-config startup-config
+
+
+======================================
+R2 预配置（题目已有 VRF 与接口）
+======================================
+enable
+configure terminal
+hostname R2
+ip vrf Sales
+ rd 100:500
+!
+ip vrf Admin
+ rd 100:600
+!
+interface GigabitEthernet0/1
+ ip vrf forwarding Sales
+ ip address 10.0.0.2 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/0
+ ip vrf forwarding Sales
+ ip address 10.0.0.5 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/2
+ ip vrf forwarding Admin
+ ip address 10.0.0.25 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/3
+ ip vrf forwarding Admin
+ ip address 192.168.20.2 255.255.255.252
+ no shutdown
+!
+router eigrp 10
+!
+end
+copy running-config startup-config
+
+
+======================================
+R3 预配置（题目已有 VRF 与接口）
+======================================
+enable
+configure terminal
+hostname R3
+ip vrf Sales
+ rd 100:500
+!
+ip vrf Admin
+ rd 100:600
+!
+interface GigabitEthernet0/1
+ ip vrf forwarding Sales
+ ip address 10.0.0.9 255.255.255.252
+ ip access-group BLOCK1 in
+ ip access-group BLOCK1 out
+ no shutdown
+!
+interface GigabitEthernet0/0
+ ip vrf forwarding Sales
+ ip address 10.0.0.6 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/2
+ ip vrf forwarding Admin
+ ip address 10.0.0.29 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/3
+ ip vrf forwarding Admin
+ ip address 192.168.20.1 255.255.255.252
+ no shutdown
+!
+ip access-list extended BLOCK1
+ deny eigrp any any
+ permit ip any any
+!
+router eigrp 10
+ auto-summary
+!
+end
+copy running-config startup-config
+
+
+======================================
+R4 预配置（题目已有）
+======================================
+enable
+configure terminal
+hostname R4
+interface Loopback0
+ ip address 10.10.10.4 255.255.255.255
+!
+interface GigabitEthernet0/1
+ ip address 10.0.0.10 255.255.255.252
+ no shutdown
+!
+router eigrp 500
+ network 10.0.0.8 0.0.0.3
+ network 10.10.10.4 0.0.0.0
+!
+end
+copy running-config startup-config
+
+
+======================================
+R5 预配置（题目已有）
+======================================
+enable
+configure terminal
+hostname R5
+interface Loopback0
+ ip address 10.20.20.5 255.255.255.255
+!
+interface GigabitEthernet0/2
+ ip address 10.0.0.26 255.255.255.252
+ no shutdown
+!
+router eigrp 600
+ network 10.0.0.24 0.0.0.3
+ network 10.20.20.5 0.0.0.0
+!
+end
+copy running-config startup-config
+
+
+======================================
+R6 预配置（题目已有）
+======================================
+enable
+configure terminal
+hostname R6
+interface Loopback0
+ ip address 10.20.20.6 255.255.255.255
+!
+interface GigabitEthernet0/2
+ ip address 10.0.0.30 255.255.255.252
+ no shutdown
+!
+router eigrp 600
+ network 10.0.0.28 0.0.0.3
+ network 10.20.20.6 0.0.0.0
+!
+end
+copy running-config startup-config
+
+
+
+================================================================================
+任务配置命令（按题目 Task 1 + Task 2 要求）
+================================================================================
+
+======================================
+R2：在 Sales/Admin VRF 下启用 EIGRP 10
+======================================
+
+R2
+enable
+configure terminal
+router eigrp 10
+ address-family ipv4 vrf Sales autonomous-system 500
+  network 10.0.0.0 0.0.0.3
+  network 10.0.0.4 0.0.0.3
+ exit-address-family
+ address-family ipv4 vrf Admin autonomous-system 600
+  network 10.0.0.24 0.0.0.3
+  network 192.168.20.0 0.0.0.3
+ exit-address-family
+end
+write memory
+
+
+======================================
+R3：在 Sales/Admin VRF 下启用 EIGRP 10，并关闭 auto-summary
+======================================
+
+R3
+enable
+configure terminal
+router eigrp 10
+ no auto-summary
+ address-family ipv4 vrf Sales autonomous-system 500
+  network 10.0.0.8 0.0.0.3
+  network 10.0.0.4 0.0.0.3
+ exit-address-family
+ address-family ipv4 vrf Admin autonomous-system 600
+  network 10.0.0.28 0.0.0.3
+  network 192.168.20.0 0.0.0.3
+ exit-address-family
+end
+write memory
+
+
+======================================
+R4：关闭 EIGRP 500 的 auto-summary
+======================================
+
+R4
+enable
+configure terminal
+router eigrp 500
+ no auto-summary
+end
+write memory
+
+
+======================================
+R5：关闭 EIGRP 600 的 auto-summary
+======================================
+
+R5
+enable
+configure terminal
+router eigrp 600
+ no auto-summary
+end
+write memory
+
+
+======================================
+R6：关闭 EIGRP 600 的 auto-summary
+======================================
+
+R6
+enable
+configure terminal
+router eigrp 600
+ no auto-summary
+end
+write memory
+
+
+======================================
+R1：更正为 EIGRP AS 500（Sales VRF 的 AS）
+======================================
+
+R1
+enable
+configure terminal
+no router eigrp 600
+router eigrp 500
+ network 10.0.0.0 0.0.0.3
+ network 10.10.10.1 0.0.0.0
+end
+write memory
+
+
+======================================
+R3：移除 BLOCK1 访问列表对 Sales 链路的阻断
+======================================
+
+R3
+enable
+configure terminal
+interface Ethernet0/1
+ no ip access-group BLOCK1 in
+ no ip access-group BLOCK1 out
+end
+write memory
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+! 验证 VRF Sales / Admin 的 EIGRP 邻居
+
+R2# show ip eigrp vrf Sales neighbors
+R2# show ip eigrp vrf Admin neighbors
+
+R3# show ip eigrp vrf Sales neighbors
+R3# show ip eigrp vrf Admin neighbors
+
+! 关键检查：R1 与 R2 之间的 Sales VRF（AS 500）邻居关系是否建立
+R1# show ip eigrp neighbors
+R2# show ip eigrp vrf Sales neighbors
+
+! 检查 R3 与 R4 Sales VRF 相关链路是否有邻居
+R3# show ip eigrp vrf Sales neighbors
+R4# show ip eigrp neighbors
+
+
+! 路由表检查：Loopback0 互相可达（Sales VRF）
+
+R1# show ip route 10.10.10.4
+R4# show ip route 10.10.10.1
+
+! Ping 测试：题目要求 R1 ↔ R4 的 Loopback0 在 Sales VRF 中可 ping 通
+
+R1# ping 10.10.10.4
+R4# ping 10.10.10.1
+
+!（可选）EIGRP 前缀传播检查（Sales VRF/AS500）
+
+R2# show ip route vrf Sales
+R3# show ip route vrf Sales
+
+!（可选）Admin VRF/AS600 邻居与路由检查
+
+R2# show ip eigrp vrf Admin neighbors
+R3# show ip eigrp vrf Admin neighbors
+R5# show ip eigrp neighbors
+R6# show ip eigrp neighbors

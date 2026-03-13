@@ -1,0 +1,287 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 7
+DMVPN Hub-and-Spoke IPSec Protection - CONFIG SPLIT (R7206s)
+================================================================================
+
+拓扑与地址规划概要（同前）
+--------------------------------------------------------------------------------
+角色映射：
+- R0 (Hub)      = R7206-1
+- R1 (Spoke1)   = R7206-2
+- R2 (Spoke2)   = R7206-3
+
+物理公网链路：
+- R0 f0/0 ↔ R1 f0/0 : 192.168.10.0/30
+  - R0 f0/0 = 192.168.10.1
+  - R1 f0/0 = 192.168.10.2
+- R0 f2/0 ↔ R2 f2/0 : 192.168.20.0/30
+  - R0 f2/0 = 192.168.20.1
+  - R2 f2/0 = 192.168.20.2
+- R1 f1/0 ↔ R2 f1/0 : 未使用，shutdown，避免 Spoke 直连
+
+逻辑 DMVPN & LAN：
+- Tunnel0：
+  - R0 = 10.0.0.254/24
+  - R1 = 10.0.0.1/24
+  - R2 = 10.0.0.2/24
+- 各站点 LAN（Loopback0）：
+  - R0 = 10.100.0.1/24
+  - R1 = 10.100.1.1/24
+  - R2 = 10.100.2.1/24
+
+ISAKMP/IPSec 要求保持与 Q7 一致：AES256、SHA256、group2、lifetime 86400、key "abc123"、transform-set "T-SET"、profile "IPSEC-PROFILE"。 [file:27]
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+R0（Hub，R7206-1） 预配置
+======================================
+enable
+configure terminal
+hostname R0
+no ip domain-lookup
+
+! 物理公网接口
+interface FastEthernet0/0
+ description WAN link to R1
+ ip address 192.168.10.1 255.255.255.252
+ no shutdown
+
+interface FastEthernet2/0
+ description WAN link to R2
+ ip address 192.168.20.1 255.255.255.252
+ no shutdown
+
+! 站点 LAN（Loopback 模拟）
+interface Loopback0
+ description Site-0 LAN GW
+ ip address 10.100.0.1 255.255.255.0
+
+! DMVPN Hub Tunnel（未加 IPSec）
+interface Tunnel0
+ ip address 10.0.0.254 255.255.255.0
+ no ip redirects
+ ip nhrp network-id 10
+ ip ospf network broadcast
+ ip ospf priority 255
+ tunnel source 192.168.10.1
+ tunnel mode gre multipoint
+
+! OSPF
+router ospf 1
+ router-id 0.0.0.0
+ network 10.0.0.0 0.255.255.255 area 0
+
+end
+write memory
+
+
+======================================
+R1（Spoke1，R7206-2） 预配置
+======================================
+enable
+configure terminal
+hostname R1
+no ip domain-lookup
+
+! 物理公网接口
+interface FastEthernet0/0
+ description WAN link to R0
+ ip address 192.168.10.2 255.255.255.252
+ no shutdown
+
+interface FastEthernet1/0
+ description UNUSED link to R2 - keep down to avoid direct spoke connectivity
+ shutdown
+
+! 站点 LAN（Loopback 模拟）
+interface Loopback0
+ description Site-1 LAN GW
+ ip address 10.100.1.1 255.255.255.0
+
+! DMVPN Spoke Tunnel（未加 IPSec）
+interface Tunnel0
+ ip address 10.0.0.1 255.255.255.0
+ ip nhrp map multicast 192.168.10.1
+ ip nhrp map 10.0.0.254 192.168.10.1
+ ip nhrp network-id 10
+ ip nhrp nhs 10.0.0.254
+ ip ospf network broadcast
+ ip ospf priority 0
+ tunnel source 192.168.10.2
+ tunnel destination 192.168.10.1
+
+! OSPF
+router ospf 1
+ router-id 0.0.0.1
+ network 10.0.0.0 0.255.255.255 area 0
+
+end
+write memory
+
+
+======================================
+R2（Spoke2，R7206-3） 预配置
+======================================
+enable
+configure terminal
+hostname R2
+no ip domain-lookup
+
+! 物理公网接口
+interface FastEthernet2/0
+ description WAN link to R0
+ ip address 192.168.20.2 255.255.255.252
+ no shutdown
+
+interface FastEthernet1/0
+ description UNUSED link to R1 - keep down to avoid direct spoke connectivity
+ shutdown
+
+! 站点 LAN（Loopback 模拟）
+interface Loopback0
+ description Site-2 LAN GW
+ ip address 10.100.2.1 255.255.255.0
+
+! DMVPN Spoke Tunnel（未加 IPSec）
+interface Tunnel0
+ ip address 10.0.0.2 255.255.255.0
+ ip nhrp map multicast 192.168.10.1
+ ip nhrp map 10.0.0.254 192.168.10.1
+ ip nhrp network-id 10
+ ip nhrp nhs 10.0.0.254
+ ip ospf network broadcast
+ ip ospf priority 0
+ tunnel source 192.168.20.2
+ tunnel destination 192.168.10.1
+
+! 到 Hub 公网的静态路由（仅用于到 192.168.10.0/30）
+ip route 192.168.10.0 255.255.255.252 192.168.20.1
+
+! OSPF
+router ospf 1
+ router-id 0.0.0.2
+ network 10.0.0.0 0.255.255.255 area 0
+
+end
+write memory
+
+
+================================================================================
+任务解答命令（完成 IPSec 要求）
+================================================================================
+
+======================================
+任务 1 & 2 & 3: ISAKMP + IPSec Profile + 应用到 Tunnel0
+======================================
+
+--------------------------------------
+R0（Hub，R7206-1） 任务配置
+--------------------------------------
+enable
+configure terminal
+
+crypto isakmp policy 10
+ encryption aes 256
+ hash sha256
+ group 2
+ lifetime 86400
+ authentication pre-share
+
+! Hub：允许动态公网 Spoke
+crypto isakmp key abc123 address 0.0.0.0
+
+crypto ipsec transform-set T-SET esp-des esp-md5-hmac
+ mode tunnel
+
+crypto ipsec profile IPSEC-PROFILE
+ set transform-set T-SET
+
+interface Tunnel0
+ tunnel protection ipsec profile IPSEC-PROFILE
+
+end
+write memory
+
+
+--------------------------------------
+R1（Spoke1，R7206-2） 任务配置
+--------------------------------------
+enable
+configure terminal
+
+crypto isakmp policy 10
+ encryption aes 256
+ hash sha256
+ group 2
+ lifetime 86400
+ authentication pre-share
+
+! Spoke 使用 Hub 公网地址
+crypto isakmp key abc123 address 192.168.10.1
+
+crypto ipsec transform-set T-SET esp-des esp-md5-hmac
+ mode tunnel
+
+crypto ipsec profile IPSEC-PROFILE
+ set transform-set T-SET
+
+interface Tunnel0
+ tunnel protection ipsec profile IPSEC-PROFILE
+
+end
+write memory
+
+
+--------------------------------------
+R2（Spoke2，R7206-3） 任务配置
+--------------------------------------
+enable
+configure terminal
+
+crypto isakmp policy 10
+ encryption aes 256
+ hash sha256
+ group 2
+ lifetime 86400
+ authentication pre-share
+
+crypto isakmp key abc123 address 192.168.10.1
+
+crypto ipsec transform-set T-SET esp-des esp-md5-hmac
+ mode tunnel
+
+crypto ipsec profile IPSEC-PROFILE
+ set transform-set T-SET
+
+interface Tunnel0
+ tunnel protection ipsec profile IPSEC-PROFILE
+
+end
+write memory
+
+
+================================================================================
+验证命令（如何检查是否成功）
+================================================================================
+
+! 在三台路由器上检查 IKE / IPSec SA
+show crypto isakmp sa
+show crypto ipsec sa
+
+! 在 R0 上确认 OSPF 邻居（应看到 R1、R2 FULL）
+show ip ospf neighbor
+
+! 在 R0 上测试到各站点 LAN（Loopback）的连通性
+ping 10.100.1.1
+ping 10.100.2.1
+
+! 在 R1 上测试到 Hub 与另一 Spoke 的 LAN
+ping 10.100.0.1
+ping 10.100.2.1
+
+! 在 R2 上测试到 Hub 与另一 Spoke 的 LAN
+ping 10.100.0.1
+ping 10.100.1.1

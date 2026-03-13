@@ -1,0 +1,204 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 11
+DMVPN NHRP 认证与 Spoke-to-Spoke 隧道配置
+物理环境：R7206s（三路由器三角拓扑）
+================================================================================
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+R0（Hub，R7206-1）预配置
+======================================
+enable
+configure terminal
+hostname R0
+no ip domain-lookup
+
+interface FastEthernet0/0
+ ip address 192.168.1.2 255.255.255.252
+ no shutdown
+
+interface FastEthernet2/0
+ ip address 192.168.1.2 255.255.255.252
+ no shutdown
+
+interface Loopback1
+ ip address 10.100.0.1 255.255.255.0
+
+interface Tunnel0
+ ip address 10.0.0.254 255.255.255.0
+ no ip redirects
+ ip nhrp network-id 10
+ ip ospf network broadcast
+ ip ospf priority 255
+ tunnel source 192.168.1.2
+ tunnel mode gre multipoint
+
+router ospf 1
+ network 10.0.0.0 0.255.255.255 area 0
+
+ip route 192.168.1.4 255.255.255.252 192.168.1.1
+ip route 192.168.1.8 255.255.255.252 192.168.1.1
+
+end
+write memory
+
+
+======================================
+R1（Spoke1，R7206-2）预配置
+======================================
+enable
+configure terminal
+hostname R1
+no ip domain-lookup
+
+interface FastEthernet0/0
+ ip address 192.168.1.6 255.255.255.252
+ no shutdown
+
+interface FastEthernet1/0
+ shutdown
+
+interface Loopback1
+ ip address 10.100.1.1 255.255.255.0
+
+interface Tunnel0
+ ip address 10.0.0.1 255.255.255.0
+ ip nhrp map multicast 192.168.1.2
+ ip nhrp map 10.0.0.254 192.168.1.2
+ ip nhrp network-id 10
+ ip nhrp nhs 10.0.0.254
+ ip ospf network broadcast
+ ip ospf priority 0
+ tunnel source 192.168.1.6
+ tunnel destination 192.168.1.2
+
+router ospf 1
+ network 10.0.0.0 0.255.255.255 area 0
+
+ip route 192.168.1.0 255.255.255.252 192.168.1.5
+ip route 192.168.1.8 255.255.255.252 192.168.1.5
+
+end
+write memory
+
+
+======================================
+R2（Spoke2，R7206-3）预配置
+======================================
+enable
+configure terminal
+hostname R2
+no ip domain-lookup
+
+interface FastEthernet2/0
+ ip address 192.168.1.10 255.255.255.252
+ no shutdown
+
+interface FastEthernet1/0
+ shutdown
+
+interface Loopback1
+ ip address 10.100.2.1 255.255.255.0
+
+interface Tunnel0
+ ip address 10.0.0.2 255.255.255.0
+ ip nhrp map multicast 192.168.1.2
+ ip nhrp map 10.0.0.254 192.168.1.2
+ ip nhrp network-id 10
+ ip nhrp nhs 10.0.0.254
+ ip ospf network broadcast
+ ip ospf priority 0
+ tunnel source 192.168.1.10
+ tunnel destination 192.168.1.2
+
+router ospf 1
+ network 10.0.0.0 0.255.255.255 area 0
+
+ip route 192.168.1.0 255.255.255.252 192.168.1.9
+ip route 192.168.1.4 255.255.255.252 192.168.1.9
+
+end
+write memory
+
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+======================================
+任务 1：在所有路由器上配置 NHRP 认证
+======================================
+
+R0
+enable
+configure terminal
+interface Tunnel0
+ ip nhrp authentication Ci$c0123
+end
+write memory
+
+R1
+enable
+configure terminal
+interface Tunnel0
+ ip nhrp authentication Ci$c0123
+end
+write memory
+
+R2
+enable
+configure terminal
+interface Tunnel0
+ ip nhrp authentication Ci$c0123
+end
+write memory
+
+
+======================================
+任务 2：在 Spoke 路由器上配置 Spoke-to-Spoke 隧道（移除 tunnel destination，配置 mGRE）
+======================================
+
+R1
+enable
+configure terminal
+interface Tunnel0
+ no tunnel destination
+ tunnel mode gre multipoint
+end
+write memory
+
+R2
+enable
+configure terminal
+interface Tunnel0
+ no tunnel destination
+ tunnel mode gre multipoint
+end
+write memory
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+show ip ospf neighbor
+show ip nhrp
+show dmvpn
+show tunnel
+
+ping 10.0.0.1
+ping 10.0.0.2
+
+ping 10.100.0.1
+ping 10.100.1.1
+ping 10.100.2.1
+
+traceroute 10.100.1.1
+traceroute 10.100.2.1
+
+show ip route ospf

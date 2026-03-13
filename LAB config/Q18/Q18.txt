@@ -1,0 +1,170 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 18
+SSH 本地 AAA 认证与基于时间的 ICMP 访问控制
+物理环境：R7206s
+================================================================================
+
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+
+======================================
+R7206-1 = ISP 预配置
+======================================
+en
+conf t
+hostname ISP
+enable secret cisco
+username cisco privilege 15 secret cisco
+
+interface f0/0
+ ip address 20.0.20.1 255.255.255.252
+ no shut
+
+interface f2/0
+ ip address 10.0.10.1 255.255.255.252
+ no shut
+
+ip route 192.168.20.0 255.255.255.0 20.0.20.2
+ip route 192.168.10.0 255.255.255.0 10.0.10.2
+
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+line vty 0 4
+ login local
+ transport input all
+end
+wr
+
+
+======================================
+R7206-2 = WEST 预配置
+======================================
+en
+conf t
+hostname WEST
+enable secret cisco
+username cisco privilege 15 secret cisco
+ip domain name cisco.com
+
+aaa new-model
+aaa authentication login default local-case none
+aaa authentication login SSH_Connections local none
+
+interface f0/0
+ ip address 20.0.20.2 255.255.255.252
+ no shut
+
+interface f1/0
+ ip address 192.168.20.1 255.255.255.0
+ shutdown
+
+ip route 0.0.0.0 0.0.0.0 20.0.20.1
+
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+ stopbits 1
+line vty 0 4
+ exec-timeout 5 0
+ transport input all
+end
+wr
+
+======================================
+R7206-3 = EAST 预配置
+======================================
+en
+conf t
+hostname EAST
+enable secret cisco
+username cisco privilege 15 secret cisco
+
+interface f2/0
+ ip address 10.0.10.2 255.255.255.252
+ ip access-group icmp-rule in
+ no shut
+
+interface f1/0
+ ip address 192.168.10.1 255.255.255.0
+ shutdown
+
+ip route 0.0.0.0 0.0.0.0 10.0.10.1
+
+ip access-list extended icmp-rule
+ deny icmp any any time-range blkicmp
+
+time-range blkicmp
+ periodic daily 18:01 to 23:59
+
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+line vty 0 4
+ exec-timeout 5 0
+ login local
+ transport input all
+end
+wr
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+======================================
+任务 1：WEST 上 SSH 使用本地数据库 westadmin/westadminpass
+======================================
+
+WEST
+en
+conf t
+crypto key generate rsa modulus 2048
+username westadmin password westadminpass
+no aaa authentication login SSH_Connections local none
+aaa authentication login SSH_Connections local
+line vty 0 4
+ login authentication SSH_Connections
+end
+wr
+
+
+
+======================================
+任务 2：EAST 上 ICMP 仅在每日 09:00–18:00 允许
+======================================
+
+EAST
+en
+conf t
+time-range blkicmp
+ periodic daily 0:00 to 8:59
+ip access-list extended icmp-rule
+ permit ip any any
+end
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+! WEST SSH/AAA 验证（从 ISP 或另一设备发起）
+show run | sec aaa
+show run | inc username westadmin
+show run | sec line vty
+show crypto key mypubkey rsa
+show ip ssh
+
+! 在远端设备上：
+ssh -l westadmin 192.168.20.1
+
+! EAST ICMP 时间控制验证
+show time-range
+show access-lists icmp-rule
+show run interface f2/0
+
+ping 192.168.10.1

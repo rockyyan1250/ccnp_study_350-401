@@ -1,0 +1,87 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 10
+日志序列号、时间戳与 SNMP OSPF 陷阱配置
+物理环境：General（6 路由器拓扑，使用 R1 作为 R-WEST）
+================================================================================
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+R-WEST（R1）预配置
+======================================
+enable
+configure terminal
+hostname R-WEST
+
+interface Loopback0
+ ip address 1.1.1.1 255.255.255.0
+
+interface FastEthernet0/0
+ ip address 10.0.0.1 255.255.255.0
+ no shutdown
+
+router ospf 1
+ network 10.0.0.0 0.255.255.255 area 0
+ network 1.1.1.0 0.0.0.255 area 0
+
+end
+write memory
+
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+======================================
+任务 1：配置日志序列号
+======================================
+
+R-WEST
+enable
+configure terminal
+service sequence-numbers
+end
+write memory
+
+
+======================================
+任务 2：配置日志时间戳（日期和时间）
+======================================
+
+R-WEST
+enable
+configure terminal
+service timestamps log datetime
+end
+write memory
+
+
+======================================
+任务 3：配置 SNMP OSPF 状态变化和接口状态变化陷阱
+======================================
+
+R-WEST
+enable
+configure terminal
+snmp-server enable traps ospf state-change if-state-change
+end
+write memory
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+show running-config | include service
+show running-config | include snmp-server
+
+show logging
+show ip ospf neighbor
+
+debug ip ospf events
+debug ip ospf adj
+undebug all

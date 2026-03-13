@@ -1,0 +1,185 @@
+================================================================================
+CCNP 300-410 ENCOR - QUESTION 13
+多协议路由故障排查：Admin Distance、EIGRP 指标与 PBR
+物理环境：General（6 路由器拓扑）
+================================================================================
+
+================================================================================
+预配置命令（环境搭建）
+================================================================================
+
+======================================
+R3 预配置
+======================================
+enable
+configure terminal
+hostname R3
+
+interface Loopback0
+ ip address 10.3.3.3 255.255.255.0
+interface Loopback1
+ ip address 10.3.33.3 255.255.255.0
+interface g0/0
+ ip address 172.16.13.3 255.255.255.248
+ ip nat inside
+interface g0/1
+ ip address 10.0.35.3 255.255.255.248
+ ip nat inside
+interface g0/2
+ ip address 209.165.201.1 255.255.255.252
+ ip nat outside
+interface g0/3
+ ip address 209.165.200.225 255.255.255.252
+ ip nat outside
+
+router eigrp 10
+ default-metric 1 1 1 1 1
+ network 10.0.35.0 0.0.0.7
+ network 10.3.33.0 0.0.0.255
+ redistribute ospf 10
+ redistribute static
+ eigrp router-id 10.3.33.3
+
+router ospf 10
+ router-id 10.3.3.3
+ redistribute static subnets
+ redistribute eigrp 10 subnets
+ network 10.3.3.0 0.0.0.255 area 0
+ network 172.16.13.0 0.0.0.7 area 0
+ default-information originate metric 100 metric-type 1
+
+ip route 0.0.0.0 0.0.0.0 Null0
+
+route-map SP2 permit 10
+ match ip address 110
+route-map SP1 permit 10
+ match ip address 120
+
+access-list 10 permit 10.0.0.0 0.255.255.255
+access-list 20 permit 172.16.0.0 0.15.255.255
+access-list 110 deny ip 10.0.0.0 0.255.255.255 172.16.0.0 0.15.255.255
+access-list 110 permit ip 10.0.0.0 0.255.255.255 any
+access-list 120 deny ip 172.16.0.0 0.15.255.255 10.0.0.0 0.255.255.255
+access-list 120 permit ip 172.16.0.0 0.15.255.255 any
+
+end
+write memory
+
+
+======================================
+R4 预配置
+======================================
+enable
+configure terminal
+hostname R4
+
+interface Loopback0
+ ip address 10.4.4.4 255.255.255.0
+interface Loopback1
+ ip address 10.4.44.4 255.255.255.0
+interface g0/0
+ ip address 172.16.24.4 255.255.255.248
+interface g0/1
+ ip address 10.0.46.4 255.255.255.240
+interface g0/2
+ ip address 10.0.49.4 255.255.255.0
+
+router eigrp 10
+ default-metric 1 1 1 1 1
+ network 10.0.46.0 0.0.0.15
+ network 10.4.44.0 0.0.0.255
+ redistribute ospf 10
+ redistribute rip
+ eigrp router-id 10.4.44.4
+
+router ospf 10
+ router-id 10.4.4.4
+ redistribute eigrp 10 subnets
+ network 10.4.4.0 0.0.0.255 area 0
+ network 172.16.24.0 0.0.0.7 area 0
+
+router rip
+ version 2
+ redistribute eigrp 10 metric 6
+ network 10.0.0.0
+
+end
+write memory
+
+
+
+================================================================================
+任务解答命令
+================================================================================
+
+======================================
+任务 1：修改 RIP 的 Admin Distance 防止路由循环
+======================================
+
+R4
+enable
+configure terminal
+router rip
+ distance 85 10.0.49.0 0.0.0.255
+end
+write memory
+
+
+======================================
+任务 2：修改 EIGRP 指标以改变路由路径（R5→R6→R4→R2）
+======================================
+
+R4
+enable
+configure terminal
+router eigrp 10
+ no redistribute ospf 10
+ redistribute ospf 10 match internal metric 100000 1 255 10 1500
+end
+write memory
+
+
+======================================
+任务 3：在 R3 上配置 PBR（Policy-Based Routing）
+======================================
+
+R3
+enable
+configure terminal
+route-map SP1 permit 10
+ set ip next-hop 209.165.201.2
+route-map SP2 permit 10
+
+ set ip next-hop 209.165.200.226
+interface g0/0
+ ip policy route-map SP1
+interface g0/1
+ ip policy route-map SP2
+end
+write memory
+
+
+
+================================================================================
+验证命令
+================================================================================
+
+R4# show ip route rip
+R4# show ip route ospf
+R4# show ip route 10.9.99.0
+
+R5# traceroute 10.9.99.9 numeric
+R5# ping 10.9.99.9
+
+R5# traceroute 10.2.2.2 source 10.5.5.5 numeric
+R2# traceroute 10.5.5.5 source 10.2.2.2 numeric
+
+R5# show ip route 10.2.2.2
+R5# show ip route eigrp
+
+R3# show route-map SP1
+R3# show route-map SP2
+R3# show ip policy
+
+R1# traceroute 10.0.0.1 source 10.1.1.1 numeric
+R5# traceroute 172.16.0.1 source 10.5.5.5 numeric
