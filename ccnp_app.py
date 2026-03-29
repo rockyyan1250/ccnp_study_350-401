@@ -68,7 +68,8 @@ mode_options = [
     "Range Selection (範囲指定)",
     "Range Selection (ランダム)",
     "Flagged Questions (フラグ付きのみ)",
-    "Flagged Questions (ランダム)"
+    "Flagged Questions (ランダム)",
+    "Missed Questions (間違えた問題のみ)"
 ]
 
 mode = st.sidebar.selectbox("Select Mode", mode_options)
@@ -98,6 +99,21 @@ if st.sidebar.button("Start / Reset Session"):
         indices = df[mask].index.tolist()
         if "ランダム" in mode:
             random.shuffle(indices)
+    elif mode == "Missed Questions (間違えた問題のみ)":
+        # MC_mis.txtから番号を読み込む
+        mis_file = "MC_mis.txt"
+        mis_nums = set()
+        if os.path.exists(mis_file):
+            with open(mis_file, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.isdigit():
+                        mis_nums.add(int(line))
+        # id_numがmis_numsに含まれるものだけ抽出
+        mask = df['id_num'].isin(mis_nums)
+        indices = df[mask].index.tolist()
+        # デフォルトでランダムに並べる
+        random.shuffle(indices)
 
     st.session_state.q_list = indices
     st.rerun()
